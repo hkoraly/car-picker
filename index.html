@@ -34,7 +34,7 @@
     display:flex;
     justify-content:space-between;
     align-items:baseline;
-    margin-bottom:18px;
+    margin-bottom:6px;
   }
   h1{
     font-size:22px;
@@ -52,171 +52,238 @@
     gap:18px;
     font-size:12px;
     color:var(--muted);
-    margin-bottom:16px;
+    margin-bottom:18px;
   }
   .legend span{display:inline-flex; align-items:center; gap:6px;}
   .dot{width:9px; height:9px; border-radius:50%;}
   .dot.gas{background:var(--gas);}
   .dot.ev{background:var(--ev);}
 
-  .rows{
+  .people{
     flex:1;
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:16px;
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--panel-edge);
+    border-radius:8px;
+    padding:18px 20px;
     display:flex;
     flex-direction:column;
     gap:10px;
-    overflow:hidden;
   }
-  .row{
-    background:var(--panel);
-    border:1px solid var(--panel-edge);
-    border-left:4px solid var(--panel-edge);
-    border-radius:6px;
-    padding:14px 16px;
-    display:grid;
-    grid-template-columns: 1.3fr 1fr 1fr;
-    align-items:center;
-    gap:12px;
-  }
-  .row.win-gas{border-left-color:var(--gas);}
-  .row.win-ev{border-left-color:var(--ev);}
+  .card.win-gas{box-shadow: inset 4px 0 0 var(--gas);}
+  .card.win-ev{box-shadow: inset 4px 0 0 var(--ev);}
 
-  .dest{
+  .name{font-size:18px; font-weight:700;}
+  .route{
+    font-size:12.5px;
+    color:var(--muted);
+    line-height:1.5;
+  }
+  .miles{
+    font-size:12px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+  }
+
+  .rec{
+    margin-top:4px;
     display:flex;
-    flex-direction:column;
-    gap:2px;
+    align-items:baseline;
+    gap:8px;
   }
-  .dest-name{font-size:16px; font-weight:600;}
-  .dest-dist{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .rec-label{font-size:12px; color:var(--muted);}
+  .rec-car{font-size:22px; font-weight:700;}
+  .rec-car.gas{color:var(--gas);}
+  .rec-car.ev{color:var(--ev);}
 
+  .costs{
+    display:flex;
+    gap:10px;
+    margin-top:4px;
+  }
   .cost-col{
-    display:flex;
-    flex-direction:column;
-    gap:2px;
-    padding:6px 10px;
+    flex:1;
+    padding:8px 10px;
     border-radius:5px;
+    background:#181a1f;
   }
   .cost-col.chosen.gas{background:var(--gas-dim);}
   .cost-col.chosen.ev{background:var(--ev-dim);}
-  .cost-label{
-    font-size:11px;
-    color:var(--muted);
-  }
-  .cost-value{
-    font-size:20px;
-    font-weight:700;
-    font-variant-numeric:tabular-nums;
-  }
+  .cost-label{font-size:11px; color:var(--muted);}
+  .cost-value{font-size:17px; font-weight:700; font-variant-numeric:tabular-nums;}
   .cost-col.chosen.gas .cost-value{color:var(--gas);}
   .cost-col.chosen.ev .cost-value{color:var(--ev);}
-  .note{
-    font-size:10.5px;
-    color:var(--warn);
-    margin-top:1px;
-  }
 
-  .status{
-    font-size:13px;
-    color:var(--muted);
-    padding:20px 0;
-  }
+  .savings{font-size:11.5px; color:var(--muted); margin-top:2px;}
+  .note{font-size:11px; color:var(--warn); margin-top:2px;}
+
+  .status{font-size:13px; color:var(--muted); padding:20px 0;}
   .error{color:var(--warn);}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="head">
-    <h1>Which car should I take?</h1>
+    <h1>Who takes which car today</h1>
     <div class="updated" id="updated">—</div>
   </div>
   <div class="legend">
     <span><span class="dot gas"></span>2017 Ford Escape · 20 mpg</span>
     <span><span class="dot ev"></span>Ioniq 5 · electric</span>
   </div>
-  <div class="rows" id="rows">
-    <div class="status">Loading distances…</div>
+  <div class="people" id="people">
+    <div class="status">Loading routes…</div>
   </div>
 </div>
 
 <script>
 /* ============== CONFIG — edit this block ============== */
 const CONFIG = {
-  apiKey: "AIzaSyDzVkzG-tOw-o6YvgpXabAJ6piu8j0W378",   // Maps JavaScript API key (restrict by HTTP referrer to the domain this page is hosted on)
-  origin: "823 E Linus St, Milwaukee, WI 53207",  // starting point for all trips
+  apiKey: "AIzaSyDzVkzG-tOw-o6YvgpXabAJ6piu8j0W378",
 
-  destinations: [
-    "11270 W Park Pl, Milwaukee, WI 53224",   // SPS
-    "N91 W15750, Menomonee Falls, WI 53051", // OSSC
-    "2607 S 5th St, Milwaukee, WI 53207", // Aug Prep
-    "2121 S Kinnickinnic Ave, Milwaukee, WI 53207", // gym
-    "1204 W Layton Ave, Milwaukee, WI 53221" // Playtime
-    // add as many as you like — one string per stop
-  ],
+  // Shorthand — write "Home" anywhere in a route below and it'll use this address
+  home: "823 E Linus St, Milwaukee, WI 53207",
 
-  gasPricePerGallon: 3.99,     // update to local price
+  gasPricePerGallon: 3.90,
   escapeMpg: 20,
 
-  elecPricePerKwh: 0.15342,       // your electricity rate
-  ioniqMilesPerKwh: 3.8,       // real-world efficiency estimate
-  ioniqRangeMiles: 250,        // conservative real-world range
+  elecPricePerKwh: 0.16,
+  ioniqMilesPerKwh: 3.8,
+  ioniqRangeMiles: 250,
 
-  refreshMinutes: 30           // how often to re-query distances
+  refreshMinutes: 30,
+
+  // ---- EDIT THIS EVERY TIME PLANS CHANGE ----
+  // Each person's stops for the day, in order. "Home" is shorthand for CONFIG.home.
+  people: [
+    {
+      name: "Mark",
+      route: [
+        "Home",
+        "11270 W Park Pl, Milwaukee, WI 53224",   // SPS
+        "2121 S Kinnickinnic Ave, Milwaukee, WI 53207", //gym
+        "Home"
+      ]
+    },
+    {
+      name: "Hannah",
+      route: [
+        "Home",
+        "1204 W Layton Ave, Milwaukee, WI 53221",   // Playtime
+        "2121 S Kinnickinnic Ave, Milwaukee, WI 53207", //gym
+        "Home",
+        "2607 S 5th St, Milwaukee, WI 53207",       // Aug Prep
+        "Home"
+      ]
+    }
+  ]
+  // --------------------------------------------
 };
 /* ========================================================= */
 
-function fmtMoney(n){
-  return "$" + n.toFixed(2);
+function fmtMoney(n){ return "$" + n.toFixed(2); }
+
+function resolveAddress(a){
+  return a === "Home" ? CONFIG.home : a;
 }
 
-function renderRows(results){
-  const rowsEl = document.getElementById('rows');
-  rowsEl.innerHTML = "";
+// Get distance for a single leg via Distance Matrix
+function getLegDistance(service, from, to){
+  return new Promise((resolve) => {
+    service.getDistanceMatrix({
+      origins: [resolveAddress(from)],
+      destinations: [resolveAddress(to)],
+      travelMode: google.maps.TravelMode.DRIVING,
+      unitSystem: google.maps.UnitSystem.IMPERIAL
+    }, (response, status) => {
+      if (status !== "OK" || response.rows[0].elements[0].status !== "OK"){
+        resolve({ error: true, from, to });
+        return;
+      }
+      const el = response.rows[0].elements[0];
+      resolve({ miles: el.distance.value / 1609.34 });
+    });
+  });
+}
 
-  results.forEach(r => {
-    if (r.error){
-      const row = document.createElement('div');
-      row.className = "row";
-      row.innerHTML = `<div class="dest"><div class="dest-name">${r.name}</div>
-        <div class="dest-dist error">Could not get distance</div></div><div></div><div></div>`;
-      rowsEl.appendChild(row);
+async function getPersonTotal(service, person){
+  let totalMiles = 0;
+  const legDescs = [];
+  for (let i = 0; i < person.route.length - 1; i++){
+    const from = person.route[i];
+    const to = person.route[i+1];
+    const result = await getLegDistance(service, from, to);
+    if (result.error){
+      return { error: true, name: person.name };
+    }
+    totalMiles += result.miles;
+    legDescs.push(`${from} → ${to}`);
+  }
+  return { name: person.name, totalMiles, legDescs };
+}
+
+function renderPeople(totals){
+  const el = document.getElementById('people');
+  el.innerHTML = "";
+
+  // Compute cost/savings for everyone first
+  const computed = totals.map(p => {
+    if (p.error) return p;
+    const gasCost = (p.totalMiles / CONFIG.escapeMpg) * CONFIG.gasPricePerGallon;
+    const evCost = (p.totalMiles / CONFIG.ioniqMilesPerKwh) * CONFIG.elecPricePerKwh;
+    const evInRange = p.totalMiles <= CONFIG.ioniqRangeMiles;
+    const savings = gasCost - evCost;
+    return { ...p, gasCost, evCost, evInRange, savings };
+  });
+
+  // Decide EV assignment: bigger savings wins, provided that person's day fits EV range.
+  const valid = computed.filter(p => !p.error);
+  const inRange = valid.filter(p => p.evInRange).sort((a,b) => b.savings - a.savings);
+  const evWinnerName = inRange.length > 0 ? inRange[0].name : null;
+
+  computed.forEach(p => {
+    if (p.error){
+      const card = document.createElement('div');
+      card.className = "card";
+      card.innerHTML = `<div class="name">${p.name}</div>
+        <div class="route error">Couldn't calculate one or more legs of this route — check the addresses.</div>`;
+      el.appendChild(card);
       return;
     }
 
-    const miles = r.miles;
-    const gasCost = (miles / CONFIG.escapeMpg) * CONFIG.gasPricePerGallon;
-    const evCost = (miles / CONFIG.ioniqMilesPerKwh) * CONFIG.elecPricePerKwh;
-    const roundTrip = miles * 2;
-    const evInRange = roundTrip <= CONFIG.ioniqRangeMiles;
+    const winner = p.name === evWinnerName ? "ev" : "gas";
+    const card = document.createElement('div');
+    card.className = "card win-" + winner;
 
-    let winner;
-    if (!evInRange){
-      winner = "gas";
-    } else {
-      winner = evCost <= gasCost ? "ev" : "gas";
-    }
-
-    const row = document.createElement('div');
-    row.className = "row win-" + winner;
-
-    const evNote = !evInRange
-      ? `<div class="note">Round trip exceeds EV range</div>`
+    const note = !p.evInRange
+      ? `<div class="note">Route (${p.totalMiles.toFixed(1)} mi) exceeds EV range</div>`
       : "";
 
-    row.innerHTML = `
-      <div class="dest">
-        <div class="dest-name">${r.name}</div>
-        <div class="dest-dist">${miles.toFixed(1)} mi · ${r.duration}</div>
+    card.innerHTML = `
+      <div class="name">${p.name}</div>
+      <div class="route">${p.legDescs.join("<br>")}</div>
+      <div class="miles">${p.totalMiles.toFixed(1)} miles total</div>
+      <div class="rec">
+        <span class="rec-label">Take the</span>
+        <span class="rec-car ${winner}">${winner === 'ev' ? 'Ioniq 5' : 'Escape'}</span>
       </div>
-      <div class="cost-col ${winner === 'gas' ? 'chosen gas' : ''}">
-        <div class="cost-label">Escape</div>
-        <div class="cost-value">${fmtMoney(gasCost)}</div>
+      <div class="costs">
+        <div class="cost-col ${winner === 'gas' ? 'chosen gas' : ''}">
+          <div class="cost-label">Escape</div>
+          <div class="cost-value">${fmtMoney(p.gasCost)}</div>
+        </div>
+        <div class="cost-col ${winner === 'ev' ? 'chosen ev' : ''}">
+          <div class="cost-label">Ioniq 5</div>
+          <div class="cost-value">${fmtMoney(p.evCost)}</div>
+        </div>
       </div>
-      <div class="cost-col ${winner === 'ev' ? 'chosen ev' : ''}">
-        <div class="cost-label">Ioniq 5</div>
-        <div class="cost-value">${fmtMoney(evCost)}</div>
-        ${evNote}
-      </div>
+      <div class="savings">EV saves ${fmtMoney(Math.abs(p.savings))} on this route${note}</div>
     `;
-    rowsEl.appendChild(row);
+    el.appendChild(card);
   });
 
   document.getElementById('updated').textContent =
@@ -229,46 +296,21 @@ function loadGoogleMaps(callback){
   script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.apiKey}`;
   script.onload = callback;
   script.onerror = () => {
-    document.getElementById('rows').innerHTML =
+    document.getElementById('people').innerHTML =
       `<div class="status error">Could not load Google Maps. Check the API key in CONFIG.</div>`;
   };
   document.head.appendChild(script);
 }
 
-function fetchDistances(){
+async function refresh(){
   const service = new google.maps.DistanceMatrixService();
-  service.getDistanceMatrix({
-    origins: [CONFIG.origin],
-    destinations: CONFIG.destinations,
-    travelMode: google.maps.TravelMode.DRIVING,
-    unitSystem: google.maps.UnitSystem.IMPERIAL
-  }, (response, status) => {
-    if (status !== "OK"){
-      document.getElementById('rows').innerHTML =
-        `<div class="status error">Distance Matrix request failed: ${status}</div>`;
-      return;
-    }
-
-    const elements = response.rows[0].elements;
-    const results = CONFIG.destinations.map((name, i) => {
-      const el = elements[i];
-      if (el.status !== "OK"){
-        return { name, error: true };
-      }
-      return {
-        name,
-        miles: el.distance.value / 1609.34,
-        duration: el.duration.text
-      };
-    });
-
-    renderRows(results);
-  });
+  const totals = await Promise.all(CONFIG.people.map(p => getPersonTotal(service, p)));
+  renderPeople(totals);
 }
 
 loadGoogleMaps(() => {
-  fetchDistances();
-  setInterval(fetchDistances, CONFIG.refreshMinutes * 60 * 1000);
+  refresh();
+  setInterval(refresh, CONFIG.refreshMinutes * 60 * 1000);
 });
 </script>
 </body>
